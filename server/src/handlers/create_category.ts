@@ -1,17 +1,24 @@
+import { db } from '../db';
+import { categoriesTable } from '../db/schema';
 import { type CreateCategoryInput, type Category } from '../schema';
 
-export async function createCategory(input: CreateCategoryInput): Promise<Category> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new product category and persisting it in the database
-    // with automatic slug generation if needed.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createCategory = async (input: CreateCategoryInput): Promise<Category> => {
+  try {
+    // Insert category record
+    const result = await db.insert(categoriesTable)
+      .values({
         name: input.name,
         slug: input.slug,
         description: input.description || null,
         image_url: input.image_url || null,
-        is_active: input.is_active || true,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Category);
-}
+        is_active: input.is_active ?? true
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Category creation failed:', error);
+    throw error;
+  }
+};

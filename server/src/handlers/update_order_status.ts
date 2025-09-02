@@ -1,22 +1,52 @@
+import { db } from '../db';
+import { ordersTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { type Order } from '../schema';
 
-export async function updateOrderStatus(orderId: number, status: 'pending' | 'completed' | 'failed' | 'refunded'): Promise<Order> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating order status in the database
-    // and triggering appropriate actions like digital product delivery for completed orders.
-    return Promise.resolve({
-        id: orderId,
-        user_id: 1,
-        order_number: 'ORD-123456789',
+export const updateOrderStatus = async (orderId: number, status: 'pending' | 'completed' | 'failed' | 'refunded'): Promise<Order> => {
+  try {
+    // First check if the order exists
+    const existingOrder = await db.select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1)
+      .execute();
+
+    if (existingOrder.length === 0) {
+      throw new Error(`Order with ID ${orderId} not found`);
+    }
+
+    // Update the order status and payment status logic
+    let paymentStatus: 'pending' | 'completed' | 'failed' = 'pending';
+    if (status === 'completed') {
+      paymentStatus = 'completed';
+    } else if (status === 'failed') {
+      paymentStatus = 'failed';
+    }
+
+    // Update the order with new status and updated timestamp
+    const result = await db.update(ordersTable)
+      .set({
         status: status,
-        subtotal: 100,
-        tax_amount: 10,
-        discount_amount: 0,
-        total_amount: 110,
-        coupon_id: null,
-        payment_method: 'credit_card',
-        payment_status: status === 'completed' ? 'completed' : 'pending',
-        created_at: new Date(),
+        payment_status: paymentStatus,
         updated_at: new Date()
-    } as Order);
-}
+      })
+      .where(eq(ordersTable.id, orderId))
+      .returning()
+      .execute();
+
+    const updatedOrder = result[0];
+
+    // Convert numeric fields back to numbers before returning
+    return {
+      ...updatedOrder,
+      subtotal: parseFloat(updatedOrder.subtotal),
+      tax_amount: parseFloat(updatedOrder.tax_amount),
+      discount_amount: parseFloat(updatedOrder.discount_amount),
+      total_amount: parseFloat(updatedOrder.total_amount)
+    };
+  } catch (error) {
+    console.error('Order status update failed:', error);
+    throw error;
+  }
+};

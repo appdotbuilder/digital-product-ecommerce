@@ -1,17 +1,33 @@
+import { db } from '../db';
+import { reviewsTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { type UpdateReviewInput, type Review } from '../schema';
 
 export async function updateReview(input: UpdateReviewInput): Promise<Review> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating review approval status
-    // for admin moderation purposes.
-    return Promise.resolve({
-        id: input.id,
-        user_id: 1,
-        product_id: 1,
-        rating: 5,
-        comment: 'Great product!',
+  try {
+    // Update the review with new approval status and updated timestamp
+    const result = await db.update(reviewsTable)
+      .set({
         is_approved: input.is_approved,
-        created_at: new Date(),
         updated_at: new Date()
-    } as Review);
+      })
+      .where(eq(reviewsTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Review with id ${input.id} not found`);
+    }
+
+    // Convert numeric fields back to numbers before returning
+    const review = result[0];
+    return {
+      ...review,
+      // No numeric conversions needed for reviews table
+      // All fields are already in correct types
+    };
+  } catch (error) {
+    console.error('Review update failed:', error);
+    throw error;
+  }
 }
